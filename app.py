@@ -1,12 +1,29 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy_utils import database_exists
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, time
 import pytz
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'sua_chave_secreta'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///volei.db'
+db_name = "volei.db"
+
+# Configuração do banco de dados com suporte a ambiente de desenvolvimento e produção
+if os.environ.get('RENDER'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/' + db_name
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    
+    if database_exists('sqlite:///data/' + db_name): 
+        print(db_name + "already_exists")
+    else: 
+        print(db_name + "does not exist, will create " + app.config['SQLALCHEMY_DATABASE_URI'])
+        with app.app_context(): 
+            print("Created "+ db_name + "SQLlite Database")
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///volei.db'
+
 db = SQLAlchemy(app)
 
 BR_TIMEZONE = pytz.timezone('America/Sao_Paulo')
@@ -36,7 +53,7 @@ def get_active_lists():
     
     # Lista de hoje
     today_open = datetime.combine(today - timedelta(days=1), time(12, 0))
-    today_close = datetime.combine(today, time(19, 0))
+    today_close = datetime.combine(today, time(21, 0))
     today_open = BR_TIMEZONE.localize(today_open)
     today_close = BR_TIMEZONE.localize(today_close)
     
@@ -45,7 +62,7 @@ def get_active_lists():
         
     # Lista de amanhã
     tomorrow_open = datetime.combine(today, time(12, 0))
-    tomorrow_close = datetime.combine(tomorrow, time(19, 0))
+    tomorrow_close = datetime.combine(tomorrow, time(21, 0))
     tomorrow_open = BR_TIMEZONE.localize(tomorrow_open)
     tomorrow_close = BR_TIMEZONE.localize(tomorrow_close)
     
@@ -57,7 +74,7 @@ def get_active_lists():
 def is_list_open(game_date):
     now = datetime.now(BR_TIMEZONE)
     open_time = datetime.combine(game_date - timedelta(days=1), time(12, 0))
-    close_time = datetime.combine(game_date, time(19, 0))
+    close_time = datetime.combine(game_date, time(21, 0))
     
     open_time = BR_TIMEZONE.localize(open_time)
     close_time = BR_TIMEZONE.localize(close_time)
@@ -221,19 +238,3 @@ def cancel():
                 game_date=game_date,
                 status='LISTA_ESPERA'
             ).order_by(Registration.position).all()
-            
-            for i, reg in enumerate(waiting_list[1:], 1):
-                reg.position = i
-    
-    db.session.delete(registration)
-    db.session.commit()
-    
-    flash('Inscrição cancelada com sucesso')
-    return redirect(url_for('index'))
-
-with app.app_context():
-    db.create_all()
-    db.session.commit()
-
-if __name__ == '__main__':
-    app.run(debug=True)
