@@ -7,6 +7,7 @@ import pytz
 import os
 
 app = Flask(__name__)
+db = SQLAlchemy()
 app.config['SECRET_KEY'] = 'sua_chave_secreta'
 db_name = "volei.db"
 
@@ -14,17 +15,17 @@ db_name = "volei.db"
 if os.environ.get('RENDER'):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/' + db_name
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    db.init_app(app)
     
     if database_exists('sqlite:///data/' + db_name): 
         print(db_name + "already_exists")
     else: 
         print(db_name + "does not exist, will create " + app.config['SQLALCHEMY_DATABASE_URI'])
         with app.app_context(): 
+            db.create_all()
             print("Created "+ db_name + "SQLlite Database")
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///volei.db'
-
-db = SQLAlchemy(app)
 
 BR_TIMEZONE = pytz.timezone('America/Sao_Paulo')
 
