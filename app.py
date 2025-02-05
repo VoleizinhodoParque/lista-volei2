@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -232,11 +231,7 @@ def cancel():
     flash('Inscrição cancelada com sucesso')
     return redirect(url_for('index'))
 
-def init_db():
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-
 if __name__ == '__main__':
-    init_db()
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
