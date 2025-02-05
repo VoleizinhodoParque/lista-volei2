@@ -231,7 +231,9 @@ def cancel():
     flash('Inscrição cancelada com sucesso')
     return redirect(url_for('index'))
 
+with app.app_context():
+    db.create_all()
+    db.session.commit()
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
