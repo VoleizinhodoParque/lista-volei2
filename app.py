@@ -3,32 +3,30 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_utils import database_exists
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, time
-from zoneinfo import ZoneInfo  # Replaces pytz for Python 3.9+
+import pytz
 import os
 
 app = Flask(__name__)
-db = SQLAlchemy()
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'sua_chave_secreta')
+app.config['SECRET_KEY'] = 'sua_chave_secreta'
 db_name = "volei.db"
 
 # Configuração do banco de dados com suporte a ambiente de desenvolvimento e produção
 if os.environ.get('RENDER'):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////data/' + db_name
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    
+    if database_exists('sqlite:///data/' + db_name): 
+        print(db_name + "already_exists")
+    else: 
+        print(db_name + "does not exist, will create " + app.config['SQLALCHEMY_DATABASE_URI'])
+        with app.app_context(): 
+            print("Created "+ db_name + "SQLlite Database")
 else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + db_name
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///volei.db'
 
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db.init_app(app)
+db = SQLAlchemy(app)
 
-# Create database if it doesn't exist
-with app.app_context():
-    if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
-        db.create_all()
-        print(f"Created {db_name} SQLite Database")
-    else:
-        print(f"{db_name} already exists")
-
-BR_TIMEZONE = ZoneInfo('America/Sao_Paulo')
+BR_TIMEZONE = pytz.timezone('America/Sao_Paulo')
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,15 +52,19 @@ def get_active_lists():
     lists = []
     
     # Lista de hoje
-    today_open = BR_TIMEZONE.localize(datetime.combine(today - timedelta(days=1), time(12, 0)))
-    today_close = BR_TIMEZONE.localize(datetime.combine(today, time(21, 0)))
+    today_open = datetime.combine(today - timedelta(days=1), time(12, 0))
+    today_close = datetime.combine(today, time(21, 0))
+    today_open = BR_TIMEZONE.localize(today_open)
+    today_close = BR_TIMEZONE.localize(today_close)
     
     if today_open <= now <= today_close:
         lists.append(today)
         
     # Lista de amanhã
-    tomorrow_open = BR_TIMEZONE.localize(datetime.combine(today, time(12, 0)))
-    tomorrow_close = BR_TIMEZONE.localize(datetime.combine(tomorrow, time(21, 0)))
+    tomorrow_open = datetime.combine(today, time(12, 0))
+    tomorrow_close = datetime.combine(tomorrow, time(21, 0))
+    tomorrow_open = BR_TIMEZONE.localize(tomorrow_open)
+    tomorrow_close = BR_TIMEZONE.localize(tomorrow_close)
     
     if tomorrow_open <= now <= tomorrow_close:
         lists.append(tomorrow)
@@ -71,8 +73,11 @@ def get_active_lists():
 
 def is_list_open(game_date):
     now = datetime.now(BR_TIMEZONE)
-    open_time = BR_TIMEZONE.localize(datetime.combine(game_date - timedelta(days=1), time(12, 0)))
-    close_time = BR_TIMEZONE.localize(datetime.combine(game_date, time(21, 0)))
+    open_time = datetime.combine(game_date - timedelta(days=1), time(12, 0))
+    close_time = datetime.combine(game_date, time(21, 0))
+    
+    open_time = BR_TIMEZONE.localize(open_time)
+    close_time = BR_TIMEZONE.localize(close_time)
     
     return open_time <= now <= close_time
 
@@ -154,11 +159,7 @@ def register():
         flash('Faça login primeiro')
         return redirect(url_for('login'))
 
-    try:
-        game_date = datetime.strptime(request.form['game_date'], '%Y-%m-%d').date()
-    except ValueError:
-        flash('Formato de data inválido')
-        return redirect(url_for('index'))
+    game_date = datetime.strptime(request.form['game_date'], '%Y-%m-%d').date()
     
     if not is_list_open(game_date):
         flash('Lista fechada no momento')
@@ -196,16 +197,10 @@ def register():
         position=main_count + 1 if main_count < 22 else waiting_count + 1
     )
     
-    try:
-        db.session.add(new_reg)
-        db.session.commit()
-        flash('Inscrição realizada com sucesso!')
-    except Exception as e:
-        db.session.rollback()
-        flash('Ocorreu um erro durante a inscrição')
-    finally:
-        db.session.close()
+    db.session.add(new_reg)
+    db.session.commit()
     
+    flash('Inscrição realizada com sucesso!')
     return redirect(url_for('index'))
 
 @app.route('/cancel', methods=['POST'])
@@ -214,11 +209,7 @@ def cancel():
         flash('Faça login primeiro')
         return redirect(url_for('login'))
     
-    try:
-        game_date = datetime.strptime(request.form['game_date'], '%Y-%m-%d').date()
-    except ValueError:
-        flash('Formato de data inválido')
-        return redirect(url_for('index'))
+    game_date = datetime.strptime(request.form['game_date'], '%Y-%m-%d').date()
     
     if not is_list_open(game_date):
         flash('Lista fechada no momento')
@@ -233,28 +224,17 @@ def cancel():
         flash('Você não está inscrito para este dia')
         return redirect(url_for('index'))
     
-    try:
-        if registration.status == 'CONFIRMADO':
-            first_waiting = Registration.query.filter_by(
+    if registration.status == 'CONFIRMADO':
+        first_waiting = Registration.query.filter_by(
+            game_date=game_date,
+            status='LISTA_ESPERA'
+        ).order_by(Registration.position).first()
+        
+        if first_waiting:
+            first_waiting.status = 'CONFIRMADO'
+            first_waiting.position = registration.position
+            
+            waiting_list = Registration.query.filter_by(
                 game_date=game_date,
                 status='LISTA_ESPERA'
-            ).order_by(Registration.position).first()
-            
-            if first_waiting:
-                first_waiting.status = 'CONFIRMADO'
-                first_waiting.position = registration.position
-                db.session.commit()
-        
-        db.session.delete(registration)
-        db.session.commit()
-        flash('Inscrição cancelada com sucesso!')
-    except Exception as e:
-        db.session.rollback()
-        flash('Ocorreu um erro ao cancelar a inscrição')
-    finally:
-        db.session.close()
-    
-    return redirect(url_for('index'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
+            ).order_by(Registration.position).all()
