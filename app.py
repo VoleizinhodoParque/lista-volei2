@@ -319,7 +319,22 @@ def debug():
             'error_type': type(e).__name__,
             'error_message': str(e)
         }
-
+        
+@app.route('/create_test_user')
+def create_test_user():
+    try:
+        test_user = User(
+            username='teste',
+            password=generate_password_hash('123456'),
+            name='Usuário Teste'
+        )
+        db.session.add(test_user)
+        db.session.commit()
+        return 'Test user created successfully'
+    except Exception as e:
+        db.session.rollback()
+        return f'Error creating user: {str(e)}'
+        
 if __name__ == '__main__':
     app.run(debug=True)
 
