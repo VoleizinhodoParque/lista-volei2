@@ -15,12 +15,12 @@ app = Flask(__name__)
 # Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback_secret_key')
 
-# Database configuration
+# Database configuration - PostgreSQL
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///volei.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
@@ -46,9 +46,17 @@ class Registration(db.Model):
     game_date = db.Column(db.Date, nullable=False)
     user = db.relationship('User', backref='registrations')
 
-# Create tables
-with app.app_context():
-    db.create_all()
+def init_db():
+    with app.app_context():
+        try:
+            db.create_all()
+            print("Database tables created successfully")
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
+
+# Initialize database (only in production)
+if os.environ.get('RENDER'):
+    init_db()
 
 # Utility Functions
 def get_active_lists():
@@ -81,7 +89,33 @@ def is_list_open(game_date):
     
     return open_time <= now <= close_time
 
-# Routes
+@app.route('/debug')
+def debug():
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    
+    try:
+        # Test connection
+        tables = inspector.get_table_names()
+        user_count = User.query.count() if 'user' in tables else 'Table not found'
+        
+        return {
+            'status': 'OK',
+            'database_url_type': app.config['SQLALCHEMY_DATABASE_URI'].split(':')[0],
+            'tables': tables,
+            'user_count': user_count,
+            'tables_exist': {
+                'user': 'user' in tables,
+                'registration': 'registration' in tables
+            }
+        }
+    except Exception as e:
+        return {
+            'status': 'ERROR',
+            'error_type': type(e).__name__,
+            'error_message': str(e)
+        }
+
 @app.route('/')
 def index():
     active_dates = get_active_lists()
@@ -171,6 +205,7 @@ def register_user():
         except Exception as e:
             db.session.rollback()
             flash('Ocorreu um erro ao criar a conta. Tente novamente.')
+            print(f"Error creating user: {str(e)}")
     
     return render_template('register_user.html')
 
@@ -230,6 +265,7 @@ def register():
     except Exception as e:
         db.session.rollback()
         flash('Ocorreu um erro ao realizar a inscrição. Tente novamente.')
+        print(f"Error registering: {str(e)}")
     
     return redirect(url_for('index'))
 
@@ -284,6 +320,7 @@ def cancel():
     except Exception as e:
         db.session.rollback()
         flash('Ocorreu um erro ao cancelar a inscrição.')
+        print(f"Error canceling: {str(e)}")
     
     return redirect(url_for('index'))
 
