@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate  # Nova importação
 from sqlalchemy_utils import database_exists
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, time
@@ -25,6 +26,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)  # Nova linha para migração
 
 # Timezone configuration
 BR_TIMEZONE = ZoneInfo('America/Sao_Paulo')
@@ -32,28 +34,19 @@ BR_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 # Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=False)  # Aumentado para 255
-    name = db.Column(db.String(120), nullable=False)
+    username = db.Column(db.String(255), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
 
 class Registration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(120), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
     registration_time = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='CONFIRMADO')
     position = db.Column(db.Integer)
     game_date = db.Column(db.Date, nullable=False)
     user = db.relationship('User', backref='registrations')
-
-# Create tables
-def init_db():
-    with app.app_context():
-        db.create_all()
-        db.session.commit()
-
-# Uncomment the following line during initial setup
-init_db()
 
 # Utility Functions
 def get_active_lists():
@@ -158,12 +151,11 @@ def register_user():
             flash('Preencha todos os campos')
             return redirect(url_for('register_user'))
         
-        # Validações adicionais
-        if len(username) > 120:
+        if len(username) > 255:
             flash('Nome de usuário muito longo')
             return redirect(url_for('register_user'))
         
-        if len(name) > 120:
+        if len(name) > 255:
             flash('Nome muito longo')
             return redirect(url_for('register_user'))
             
@@ -171,7 +163,6 @@ def register_user():
             flash('Nome de usuário já existe')
             return redirect(url_for('register_user'))
         
-        # Gerar hash de senha completo
         hashed_password = generate_password_hash(password)
         
         user = User(
@@ -305,16 +296,14 @@ def cancel():
     
     return redirect(url_for('index'))
 
-# Rota para criar usuário de teste
 @app.route('/create_test_user')
 def create_test_user():
     try:
-        # Gerar hash de senha completo
         hashed_password = generate_password_hash('123456')
         
         test_user = User(
             username='teste',
-            password=hashed_password,  # Armazena hash completo
+            password=hashed_password,
             name='Usuário Teste'
         )
         db.session.add(test_user)
