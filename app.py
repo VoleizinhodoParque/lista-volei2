@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo  # Python 3.9+ for timezone handling
 import os
 
+# Teste 12345 
+
 # Initialize Flask app
 app = Flask(__name__)
 
