@@ -12,7 +12,7 @@ app = Flask(__name__)
 # Configuration
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback_secret_key')
 db_name = "volei.db"
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///data/{db_name}'  # Use 3 slashes for relative path
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_name}' 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize SQLAlchemy
