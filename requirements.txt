@@ -7,4 +7,3 @@ pytz==2024.1
 Sqlalchemy-Utils
 psycopg2-binary
 python-dotenv
-flask-migrate
