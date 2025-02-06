@@ -1,15 +1,14 @@
-<!-- index.html -->
 {% extends "base.html" %}
 {% block content %}
-    <h1 class="mb-4">Lista de Vôlei</h1>
+    <h1 class="mb-4 fs-2">Lista de Vôlei</h1>
     
     {% if session.get('user_id') %}
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>Olá, {{ session.get('name') }}</div>
+            <div class="fs-5">Olá, {{ session.get('name') }}</div>
             <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">Sair</a>
         </div>
     {% else %}
-        <div class="alert alert-info mb-4">
+        <div class="alert alert-info mb-4 fs-5">
             <a href="{{ url_for('login') }}">Faça login</a> ou 
             <a href="{{ url_for('register_user') }}">crie uma conta</a> para se inscrever
         </div>
@@ -17,12 +16,12 @@
 
     {% for list_data in lists_data %}
         <div class="mb-5">
-            <h2>Lista para {{ list_data.game_date.strftime('%d/%m/%Y') }}</h2>
+            <h2 class="fs-3">Lista para {{ list_data.game_date.strftime('%d/%m/%Y') }}</h2>
             
             {% if list_data.is_open %}
-                <div class="alert alert-success">Lista aberta para inscrições</div>
+                <div class="alert alert-success fs-5">Lista aberta para inscrições</div>
             {% else %}
-                <div class="alert alert-warning">Lista fechada no momento</div>
+                <div class="alert alert-warning fs-5">Lista fechada no momento</div>
             {% endif %}
             
             {% if session.get('user_id') and list_data.is_open %}
@@ -31,7 +30,7 @@
                         <div class="card-body">
                             <form method="POST" action="{{ url_for('register') }}">
                                 <input type="hidden" name="game_date" value="{{ list_data.game_date }}">
-                                <button type="submit" class="btn btn-primary">Inscrever para {{ list_data.game_date.strftime('%d/%m') }}</button>
+                                <button type="submit" class="btn btn-primary btn-lg w-100">Inscrever para {{ list_data.game_date.strftime('%d/%m') }}</button>
                             </form>
                         </div>
                     </div>
@@ -40,18 +39,18 @@
                         <div class="card-body">
                             <form method="POST" action="{{ url_for('cancel') }}">
                                 <input type="hidden" name="game_date" value="{{ list_data.game_date }}">
-                                <button type="submit" class="btn btn-danger">Cancelar inscrição para {{ list_data.game_date.strftime('%d/%m') }}</button>
+                                <button type="submit" class="btn btn-danger btn-lg w-100">Cancelar inscrição para {{ list_data.game_date.strftime('%d/%m') }}</button>
                             </form>
                         </div>
                     </div>
                 {% endif %}
             {% endif %}
 
-            <h3>Lista Principal (Confirmados)</h3>
+            <h3 class="fs-4">Lista Principal (Confirmados)</h3>
             <div class="table-responsive mb-4">
-                <table class="table">
+                <table class="table table-striped">
                     <thead>
-                        <tr>
+                        <tr class="fs-5">
                             <th>Posição</th>
                             <th>Nome</th>
                             <th>Horário</th>
@@ -60,10 +59,10 @@
                     </thead>
                     <tbody>
                         {% for reg in list_data.main_list %}
-                            <tr>
+                            <tr class="fs-5">
                                 <td>{{ reg.position }}</td>
                                 <td>{{ reg.name }}</td>
-                                <td>{{ reg.registration_time.strftime('%H:%M:%S') }}</td>
+                                <td>{{ reg.registration_time.astimezone(BR_TIMEZONE).strftime('%H:%M:%S') }}</td>
                                 <td>{{ reg.status }}</td>
                             </tr>
                         {% endfor %}
@@ -71,12 +70,12 @@
                 </table>
             </div>
 
-            <h3>Lista de Espera</h3>
+            <h3 class="fs-4">Lista de Espera</h3>
             {% if list_data.waiting_list %}
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table table-striped">
                         <thead>
-                            <tr>
+                            <tr class="fs-5">
                                 <th>Posição</th>
                                 <th>Nome</th>
                                 <th>Horário</th>
@@ -85,10 +84,10 @@
                         </thead>
                         <tbody>
                             {% for reg in list_data.waiting_list %}
-                                <tr>
+                                <tr class="fs-5">
                                     <td>{{ reg.position }}</td>
                                     <td>{{ reg.name }}</td>
-                                    <td>{{ reg.registration_time.strftime('%H:%M:%S') }}</td>
+                                    <td>{{ reg.registration_time.astimezone(BR_TIMEZONE).strftime('%H:%M:%S') }}</td>
                                     <td>{{ reg.status }}</td>
                                 </tr>
                             {% endfor %}
@@ -96,15 +95,15 @@
                     </table>
                 </div>
             {% else %}
-                <p class="text-muted">Lista de espera vazia.</p>
+                <p class="text-muted fs-5">Lista de espera vazia.</p>
             {% endif %}
         </div>
     {% endfor %}
 
     <div class="card mt-4">
         <div class="card-body">
-            <h5 class="card-title">Informações importantes:</h5>
-            <ul class="mb-0">
+            <h5 class="card-title fs-4">Informações importantes:</h5>
+            <ul class="mb-0 fs-5">
                 <li>A lista abre ao meio-dia do dia anterior e fecha às 19h do dia do jogo</li>
                 <li>São 22 vagas na lista principal e 50 vagas na lista de espera</li>
                 <li>As posições são definidas por ordem de inscrição</li>
