@@ -47,8 +47,14 @@ class Registration(db.Model):
     user = db.relationship('User', backref='registrations')
 
 # Create tables
-with app.app_context():
-    db.create_all()
+def init_db():
+    with app.app_context():
+        db.drop_all()  # Cuidado: isso vai limpar o banco!
+        db.create_all()
+        db.session.commit()
+
+# Initialize database
+init_db()
 
 # Utility Functions
 def get_active_lists():
