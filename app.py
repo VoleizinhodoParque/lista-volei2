@@ -8,6 +8,9 @@ from zoneinfo import ZoneInfo
 import os
 from dotenv import load_dotenv
 
+# Adicione isso próximo às importações de migrate
+from flask_migrate import init, migrate as migrate_command, upgrade
+
 load_dotenv()
 
 # Initialize Flask app
@@ -115,203 +118,18 @@ def index():
                          lists_data=lists_data,
                          datetime=datetime)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            flash('Preencha todos os campos')
-            return redirect(url_for('login'))
-        
-        user = User.query.filter_by(username=username).first()
-        
-        if user and check_password_hash(user.password, password):
-            session['user_id'] = user.id
-            session['name'] = user.name
-            return redirect(url_for('index'))
-            
-        flash('Usuário ou senha incorretos')
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
-
-@app.route('/register_user', methods=['GET', 'POST'])
-def register_user():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        name = request.form.get('name')
-        
-        if not username or not password or not name:
-            flash('Preencha todos os campos')
-            return redirect(url_for('register_user'))
-        
-        if len(username) > 255:
-            flash('Nome de usuário muito longo')
-            return redirect(url_for('register_user'))
-        
-        if len(name) > 255:
-            flash('Nome muito longo')
-            return redirect(url_for('register_user'))
-            
-        if User.query.filter_by(username=username).first():
-            flash('Nome de usuário já existe')
-            return redirect(url_for('register_user'))
-        
-        hashed_password = generate_password_hash(password)
-        
-        user = User(
-            username=username,
-            password=hashed_password,
-            name=name
-        )
-        
-        try:
-            db.session.add(user)
-            db.session.commit()
-            flash('Conta criada com sucesso!')
-            return redirect(url_for('login'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Ocorreu um erro ao criar a conta: {str(e)}')
-            return redirect(url_for('register_user'))
-    
-    return render_template('register_user.html')
-
-@app.route('/register', methods=['POST'])
-def register():
-    if not session.get('user_id'):
-        flash('Faça login primeiro')
-        return redirect(url_for('login'))
-
-    game_date_str = request.form.get('game_date')
-    if not game_date_str:
-        flash('Data inválida')
-        return redirect(url_for('index'))
-    
-    game_date = datetime.strptime(game_date_str, '%Y-%m-%d').date()
-    
-    if not is_list_open(game_date):
-        flash('Lista fechada no momento')
-        return redirect(url_for('index'))
-    
-    existing = Registration.query.filter_by(
-        user_id=session['user_id'],
-        game_date=game_date
-    ).first()
-    
-    if existing:
-        flash('Você já está inscrito para este dia')
-        return redirect(url_for('index'))
-    
-    main_count = Registration.query.filter_by(
-        game_date=game_date,
-        status='CONFIRMADO'
-    ).count()
-    
-    waiting_count = Registration.query.filter_by(
-        game_date=game_date,
-        status='LISTA_ESPERA'
-    ).count()
-    
-    if main_count >= 22 and waiting_count >= 50:
-        flash('Todas as vagas preenchidas')
-        return redirect(url_for('index'))
-    
-    new_reg = Registration(
-        user_id=session['user_id'],
-        name=session['name'],
-        registration_time=datetime.now(BR_TIMEZONE),
-        game_date=game_date,
-        status='CONFIRMADO' if main_count < 22 else 'LISTA_ESPERA',
-        position=main_count + 1 if main_count < 22 else waiting_count + 1
-    )
-    
+# Adicione essa função no final do arquivo, antes do if __name__ == '__main__':
+def initialize_migrations():
     try:
-        db.session.add(new_reg)
-        db.session.commit()
-        flash('Inscrição realizada com sucesso!')
+        import os
+        if not os.path.exists('migrations'):
+            init()
+            migrate_command(message="Initial migration")
+            upgrade()
     except Exception as e:
-        db.session.rollback()
-        flash('Ocorreu um erro ao realizar a inscrição. Tente novamente.')
-    
-    return redirect(url_for('index'))
-
-@app.route('/cancel', methods=['POST'])
-def cancel():
-    if not session.get('user_id'):
-        flash('Faça login primeiro')
-        return redirect(url_for('login'))
-    
-    game_date_str = request.form.get('game_date')
-    if not game_date_str:
-        flash('Data inválida')
-        return redirect(url_for('index'))
-    
-    game_date = datetime.strptime(game_date_str, '%Y-%m-%d').date()
-    
-    if not is_list_open(game_date):
-        flash('Lista fechada no momento')
-        return redirect(url_for('index'))
-    
-    registration = Registration.query.filter_by(
-        user_id=session['user_id'],
-        game_date=game_date
-    ).first()
-    
-    if not registration:
-        flash('Você não está inscrito para este dia')
-        return redirect(url_for('index'))
-    
-    try:
-        if registration.status == 'CONFIRMADO':
-            first_waiting = Registration.query.filter_by(
-                game_date=game_date,
-                status='LISTA_ESPERA'
-            ).order_by(Registration.position).first()
-            
-            if first_waiting:
-                first_waiting.status = 'CONFIRMADO'
-                first_waiting.position = registration.position
-                
-                waiting_list = Registration.query.filter_by(
-                    game_date=game_date,
-                    status='LISTA_ESPERA'
-                ).order_by(Registration.position).all()
-                
-                for idx, reg in enumerate(waiting_list, start=first_waiting.position + 1):
-                    reg.position = idx
-        
-        db.session.delete(registration)
-        db.session.commit()
-        flash('Inscrição cancelada com sucesso!')
-    except Exception as e:
-        db.session.rollback()
-        flash('Ocorreu um erro ao cancelar a inscrição.')
-    
-    return redirect(url_for('index'))
-
-@app.route('/create_test_user')
-def create_test_user():
-    try:
-        hashed_password = generate_password_hash('123456')
-        
-        test_user = User(
-            username='teste',
-            password=hashed_password,
-            name='Usuário Teste'
-        )
-        db.session.add(test_user)
-        db.session.commit()
-        return 'Test user created successfully'
-    except Exception as e:
-        db.session.rollback()
-        return f'Error creating user: {str(e)}'
+        print(f"Migration initialization error: {e}")
 
 if __name__ == '__main__':
+    initialize_migrations()
     app.run(debug=True)
+
