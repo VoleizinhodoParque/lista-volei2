@@ -18,6 +18,18 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
+
+# Database setup
+if os.environ.get('RENDER'):
+    if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
+        print(f"Creating database: {db_name}")
+        with app.app_context():
+            db.create_all()
+    else:
+        if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
+            with app.app_context():
+                db.create_all()
+
 # Timezone configuration
 BR_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 
@@ -37,6 +49,9 @@ class Registration(db.Model):
     position = db.Column(db.Integer)
     game_date = db.Column(db.Date, nullable=False)
     user = db.relationship('User', backref='registrations')
+
+with app.app_context():
+    db.create_all()
 
 # Utility Functions
 def get_active_lists():
@@ -70,6 +85,8 @@ def is_list_open(game_date):
     return open_time <= now <= close_time
 
 # Routes
+
+
 @app.route('/')
 def index():
     active_dates = get_active_lists()
@@ -279,13 +296,4 @@ def cancel():
 # Run the app
 if __name__ == '__main__':
     app.run(debug=True)
-    # Database setup
-    if os.environ.get('RENDER'):
-        if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
-            print(f"Creating database: {db_name}")
-            with app.app_context():
-                db.create_all()
-    else:
-        if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
-            with app.app_context():
-                db.create_all()
+
