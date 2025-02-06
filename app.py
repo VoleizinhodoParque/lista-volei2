@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import os
 from dotenv import load_dotenv
 
-# Adicione isso próximo às importações de migrate
+
 from flask_migrate import init, migrate as migrate_command, upgrade
 
 load_dotenv()
@@ -118,7 +118,7 @@ def index():
                          lists_data=lists_data,
                          datetime=datetime)
 
-# Adicione essa função no final do arquivo, antes do if __name__ == '__main__':
+
 def initialize_migrations():
     try:
         import os
