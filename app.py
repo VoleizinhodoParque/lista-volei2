@@ -31,14 +31,12 @@ BR_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 
 # Models
 class User(db.Model):
-    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
+    password = db.Column(db.String(255), nullable=False)  # Aumentado para 255
     name = db.Column(db.String(120), nullable=False)
 
 class Registration(db.Model):
-    __tablename__ = 'registration'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     name = db.Column(db.String(120), nullable=False)
@@ -159,15 +157,27 @@ def register_user():
         if not username or not password or not name:
             flash('Preencha todos os campos')
             return redirect(url_for('register_user'))
+        
+        # Validações adicionais
+        if len(username) > 120:
+            flash('Nome de usuário muito longo')
+            return redirect(url_for('register_user'))
+        
+        if len(name) > 120:
+            flash('Nome muito longo')
+            return redirect(url_for('register_user'))
             
         if User.query.filter_by(username=username).first():
             flash('Nome de usuário já existe')
             return redirect(url_for('register_user'))
-            
+        
+        # Gerar hash de senha completo
+        hashed_password = generate_password_hash(password)
+        
         user = User(
-            username=username[:120],
-            password=generate_password_hash(password)[:120],
-            name=name[:120]
+            username=username,
+            password=hashed_password,
+            name=name
         )
         
         try:
@@ -177,7 +187,8 @@ def register_user():
             return redirect(url_for('login'))
         except Exception as e:
             db.session.rollback()
-            flash('Ocorreu um erro ao criar a conta. Tente novamente.')
+            flash(f'Ocorreu um erro ao criar a conta: {str(e)}')
+            return redirect(url_for('register_user'))
     
     return render_template('register_user.html')
 
@@ -223,7 +234,7 @@ def register():
     
     new_reg = Registration(
         user_id=session['user_id'],
-        name=session['name'][:120],
+        name=session['name'],
         registration_time=datetime.now(BR_TIMEZONE),
         game_date=game_date,
         status='CONFIRMADO' if main_count < 22 else 'LISTA_ESPERA',
@@ -294,39 +305,16 @@ def cancel():
     
     return redirect(url_for('index'))
 
-@app.route('/debug')
-def debug():
-    from sqlalchemy import inspect
-    inspector = inspect(db.engine)
-    
-    try:
-        # Test connection
-        tables = inspector.get_table_names()
-        user_count = User.query.count() if 'user' in tables else 'Table not found'
-        
-        return {
-            'status': 'OK',
-            'database_url_type': app.config['SQLALCHEMY_DATABASE_URI'].split(':')[0],
-            'tables': tables,
-            'user_count': user_count,
-            'tables_exist': {
-                'user': 'user' in tables,
-                'registration': 'registration' in tables
-            }
-        }
-    except Exception as e:
-        return {
-            'status': 'ERROR',
-            'error_type': type(e).__name__,
-            'error_message': str(e)
-        }
-        
+# Rota para criar usuário de teste
 @app.route('/create_test_user')
 def create_test_user():
     try:
+        # Gerar hash de senha completo
+        hashed_password = generate_password_hash('123456')
+        
         test_user = User(
             username='teste',
-            password=generate_password_hash('123456')[:120],
+            password=hashed_password,  # Armazena hash completo
             name='Usuário Teste'
         )
         db.session.add(test_user)
@@ -335,6 +323,6 @@ def create_test_user():
     except Exception as e:
         db.session.rollback()
         return f'Error creating user: {str(e)}'
-        
+
 if __name__ == '__main__':
     app.run(debug=True)
