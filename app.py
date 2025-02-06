@@ -293,6 +293,33 @@ def cancel():
     
     return redirect(url_for('index'))
 
+@app.route('/debug')
+def debug():
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    
+    try:
+        # Test connection
+        tables = inspector.get_table_names()
+        user_count = User.query.count() if 'user' in tables else 'Table not found'
+        
+        return {
+            'status': 'OK',
+            'database_url_type': app.config['SQLALCHEMY_DATABASE_URI'].split(':')[0],
+            'tables': tables,
+            'user_count': user_count,
+            'tables_exist': {
+                'user': 'user' in tables,
+                'registration': 'registration' in tables
+            }
+        }
+    except Exception as e:
+        return {
+            'status': 'ERROR',
+            'error_type': type(e).__name__,
+            'error_message': str(e)
+        }
+
 if __name__ == '__main__':
     app.run(debug=True)
 
