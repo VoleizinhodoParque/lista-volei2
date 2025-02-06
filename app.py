@@ -21,17 +21,6 @@ db = SQLAlchemy(app)
 # Timezone configuration
 BR_TIMEZONE = ZoneInfo('America/Sao_Paulo')
 
-# Database setup
-if os.environ.get('RENDER'):
-    if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
-        print(f"Creating database: {db_name}")
-        with app.app_context():
-            db.create_all()
-else:
-    if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
-        with app.app_context():
-            db.create_all()
-
 # Models
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -290,3 +279,13 @@ def cancel():
 # Run the app
 if __name__ == '__main__':
     app.run(debug=True)
+    # Database setup
+    if os.environ.get('RENDER'):
+        if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
+            print(f"Creating database: {db_name}")
+            with app.app_context():
+                db.create_all()
+    else:
+        if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
+            with app.app_context():
+                db.create_all()
