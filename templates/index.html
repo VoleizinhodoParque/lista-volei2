@@ -19,9 +19,9 @@
             <h2 class="display-6 fw-bold">Lista para {{ list_data.game_date.strftime('%d/%m/%Y') }}</h2>
             
             {% if list_data.is_open %}
-                <div class="alert alert-success fs-4">Lista aberta para inscrições</div>
+                <div class="alert alert-success fs-4">Lista aberta para inscrições!</div>
             {% else %}
-                <div class="alert alert-warning fs-4">Lista fechada no momento</div>
+                <div class="alert alert-warning fs-4">Chegou muito cedo cracudo do vôlei. Lista fechada no momento</div>
             {% endif %}
             
             {% if session.get('user_id') and list_data.is_open %}
@@ -54,7 +54,7 @@
                             <th class="fs-5">Posição</th>
                             <th class="fs-5">Nome</th>
                             <th class="fs-5">Horário</th>
-                            <th class="fs-5">Status</th>
+                            
                         </tr>
                     </thead>
                     <tbody>
@@ -63,14 +63,14 @@
                                 <td class="fs-5">{{ reg.position }}</td>
                                 <td class="fs-5">{{ reg.name }}</td>
                                 <td class="fs-5">{{ reg.registration_time.astimezone(BR_TIMEZONE).strftime('%H:%M:%S') }}</td>
-                                <td class="fs-5">{{ reg.status }}</td>
+                              
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
 
-            <h3 class="h3 fw-bold mb-3">Lista de Espera</h3>
+            <h3 class="h3 fw-bold mb-3">Lista de Espera #Deusnuncatepedinada</h3>
             {% if list_data.waiting_list %}
                 <div class="table-responsive">
                     <table class="table table-striped align-middle">
@@ -79,7 +79,7 @@
                                 <th class="fs-5">Posição</th>
                                 <th class="fs-5">Nome</th>
                                 <th class="fs-5">Horário</th>
-                                <th class="fs-5">Status</th>
+                                
                             </tr>
                         </thead>
                         <tbody>
@@ -88,7 +88,7 @@
                                     <td class="fs-5">{{ reg.position }}</td>
                                     <td class="fs-5">{{ reg.name }}</td>
                                     <td class="fs-5">{{ reg.registration_time.astimezone(BR_TIMEZONE).strftime('%H:%M:%S') }}</td>
-                                    <td class="fs-5">{{ reg.status }}</td>
+                                    
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -104,7 +104,7 @@
         <div class="card-body p-4">
             <h5 class="card-title h4 fw-bold mb-3">Informações importantes:</h5>
             <ul class="mb-0 fs-5">
-                <li class="mb-2">A lista abre ao meio-dia do dia anterior e fecha às 19h do dia do jogo</li>
+                <li class="mb-2">A lista abre ao meio-dia do dia anterior e fecha às 21h do dia do jogo</li>
                 <li class="mb-2">São 22 vagas na lista principal e 50 vagas na lista de espera</li>
                 <li class="mb-2">As posições são definidas por ordem de inscrição</li>
                 <li class="mb-2">Ao cancelar uma inscrição da lista principal, o primeiro da lista de espera é promovido automaticamente</li>
