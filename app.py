@@ -316,41 +316,34 @@ def cancel():
                reg.position -= 1
            
            # Verifica se há alguém na lista de espera
-           first_waiting = Registration.query.filter_by(
+           waiting_list = Registration.query.filter_by(
                game_date=game_date,
                status='LISTA_ESPERA'
-           ).order_by(Registration.position).first()
-           
-           if first_waiting:
-               # Move o primeiro da lista de espera para a última posição confirmada disponível
-               main_count = Registration.query.filter_by(
-                   game_date=game_date,
-                   status='CONFIRMADO'
-               ).count()
-               
+           ).order_by(Registration.registration_time).all()
+
+           if waiting_list:
+               # Move o primeiro da lista de espera para a última posição da lista principal
+               first_waiting = waiting_list[0]
                first_waiting.status = 'CONFIRMADO'
-               first_waiting.position = main_count
+               first_waiting.position = 22 if len(later_registrations) == 0 else (canceled_position)
                
-               # Reorganiza a lista de espera
-               waiting_list = Registration.query.filter_by(
-                   game_date=game_date,
-                   status='LISTA_ESPERA'
-               ).order_by(Registration.position).all()
-               
-               # Atualiza as posições da lista de espera
-               for i, reg in enumerate(waiting_list[1:], start=1):
+               # Reorganiza toda a lista de espera
+               remaining_waiting = waiting_list[1:]
+               for i, reg in enumerate(remaining_waiting, start=1):
                    reg.position = i
        else:
            # Se for cancelamento da lista de espera
-           later_registrations = Registration.query.filter(
-               Registration.game_date == game_date,
-               Registration.status == 'LISTA_ESPERA',
-               Registration.position > registration.position
-           ).order_by(Registration.position).all()
+           waiting_list = Registration.query.filter_by(
+               game_date=game_date,
+               status='LISTA_ESPERA'
+           ).order_by(Registration.registration_time).all()
            
-           # Move cada inscrição uma posição para cima
-           for reg in later_registrations:
-               reg.position -= 1
+           # Remove o registro cancelado da lista
+           waiting_list = [reg for reg in waiting_list if reg.id != registration.id]
+           
+           # Reorganiza todas as posições da lista de espera
+           for i, reg in enumerate(waiting_list, start=1):
+               reg.position = i
        
        # Remove a inscrição cancelada
        db.session.delete(registration)
