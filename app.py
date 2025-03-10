@@ -58,12 +58,16 @@ def init_db():
 if os.environ.get('RENDER'):
    init_db()
 
-# Nova função de limpeza de registros antigos
 def limpar_registros_antigos():
     try:
-        data_limite = datetime.now(BR_TIMEZONE) - timedelta(days=30)
+        # Data atual no timezone do Brasil
+        hoje = datetime.now(BR_TIMEZONE).date()
+        
+        # Remove registros de jogos que já passaram há mais de 7 dias
+        data_limite = hoje - timedelta(days=7)
+        
         registros_antigos = Registration.query.filter(
-            Registration.game_date < data_limite.date()
+            Registration.game_date < data_limite
         ).all()
         
         total_removidos = len(registros_antigos)
@@ -72,7 +76,7 @@ def limpar_registros_antigos():
             db.session.delete(registro)
         
         db.session.commit()
-        print(f"{total_removidos} registros de inscrição antigos removidos")
+        print(f"{total_removidos} registros de jogos antigos removidos")
     except Exception as e:
         db.session.rollback()
         print(f"Erro ao remover registros antigos: {e}")
@@ -108,7 +112,6 @@ def is_list_open(game_date):
    
    return open_time <= now <= close_time
 
-# Restante do código permanece igual... [continuação do código original]
 @app.route('/debug')
 def debug():
    from sqlalchemy import inspect
