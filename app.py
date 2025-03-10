@@ -87,14 +87,14 @@ def get_active_lists():
    
    # Lista de hoje
    today_open = datetime.combine(today - timedelta(days=1), time(12, 0), tzinfo=BR_TIMEZONE)
-   today_close = datetime.combine(today, time(19, 0), tzinfo=BR_TIMEZONE)
+   today_close = datetime.combine(today, time(21, 0), tzinfo=BR_TIMEZONE)
    
    if today_open <= now <= today_close:
        lists.append(today)
        
    # Lista de amanhã
    tomorrow_open = datetime.combine(today, time(12, 0), tzinfo=BR_TIMEZONE)
-   tomorrow_close = datetime.combine(tomorrow, time(19, 0), tzinfo=BR_TIMEZONE)
+   tomorrow_close = datetime.combine(tomorrow, time(21, 0), tzinfo=BR_TIMEZONE)
    
    if tomorrow_open <= now <= tomorrow_close:
        lists.append(tomorrow)
@@ -104,10 +104,11 @@ def get_active_lists():
 def is_list_open(game_date):
    now = datetime.now(BR_TIMEZONE)
    open_time = datetime.combine(game_date - timedelta(days=1), time(12, 0), tzinfo=BR_TIMEZONE)
-   close_time = datetime.combine(game_date, time(19, 0), tzinfo=BR_TIMEZONE)
+   close_time = datetime.combine(game_date, time(21, 0), tzinfo=BR_TIMEZONE)
    
    return open_time <= now <= close_time
 
+# Restante do código permanece igual... [continuação do código original]
 @app.route('/debug')
 def debug():
    from sqlalchemy import inspect
@@ -320,48 +321,50 @@ def cancel():
        return redirect(url_for('index'))
    
    try:
-       canceled_position = registration.position
-       
        if registration.status == 'CONFIRMADO':
-           # Pega todas as inscrições confirmadas com posição maior que a cancelada
-           later_registrations = Registration.query.filter(
+           # Busca todas as listas para reorganização
+           main_list = Registration.query.filter(
                Registration.game_date == game_date,
-               Registration.status == 'CONFIRMADO',
-               Registration.position > canceled_position
-           ).order_by(Registration.position).all()
-           
-           # Move cada inscrição uma posição para cima
-           for reg in later_registrations:
-               reg.position -= 1
-           
-           # Verifica se há alguém na lista de espera
-           waiting_list = Registration.query.filter_by(
-               game_date=game_date,
-               status='LISTA_ESPERA'
+               Registration.status == 'CONFIRMADO'
            ).order_by(Registration.registration_time).all()
-
-           if waiting_list:
-               # Move o primeiro da lista de espera para a última posição da lista principal
+           
+           waiting_list = Registration.query.filter(
+               Registration.game_date == game_date,
+               Registration.status == 'LISTA_ESPERA'
+           ).order_by(Registration.registration_time).all()
+           
+           # Remove o registro cancelado da lista principal
+           main_list = [reg for reg in main_list if reg.id != registration.id]
+           
+           # Se lista principal tem menos de 22 e há espera
+           if len(main_list) < 22 and waiting_list:
+               # Move primeiro da lista de espera
                first_waiting = waiting_list[0]
                first_waiting.status = 'CONFIRMADO'
-               first_waiting.position = 22 if len(later_registrations) == 0 else (canceled_position)
+               main_list.append(first_waiting)
                
-               # Reorganiza toda a lista de espera
-               remaining_waiting = waiting_list[1:]
-               for i, reg in enumerate(remaining_waiting, start=1):
-                   reg.position = i
+               # Remove primeiro da lista de espera
+               waiting_list = waiting_list[1:]
+           
+           # Reordena lista principal
+           for i, reg in enumerate(sorted(main_list, key=lambda x: x.registration_time), start=1):
+               reg.position = i
+           
+           # Reordena lista de espera
+           for i, reg in enumerate(sorted(waiting_list, key=lambda x: x.registration_time), start=1):
+               reg.position = i
        else:
-           # Se for cancelamento da lista de espera
+           # Se cancelamento da lista de espera
            waiting_list = Registration.query.filter_by(
                game_date=game_date,
                status='LISTA_ESPERA'
            ).order_by(Registration.registration_time).all()
            
-           # Remove o registro cancelado da lista
+           # Remove registro cancelado
            waiting_list = [reg for reg in waiting_list if reg.id != registration.id]
            
-           # Reorganiza todas as posições da lista de espera
-           for i, reg in enumerate(waiting_list, start=1):
+           # Reordena lista de espera
+           for i, reg in enumerate(sorted(waiting_list, key=lambda x: x.registration_time), start=1):
                reg.position = i
        
        # Remove a inscrição cancelada
