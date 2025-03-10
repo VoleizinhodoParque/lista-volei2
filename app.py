@@ -356,25 +356,30 @@ def cancel():
    
    return redirect(url_for('index'))
   
-# Limpeza automática de registros antigos
-with app.app_context():
-    data_limite = datetime.now(BR_TIMEZONE) - timedelta(days=30)
-    registros_antigos = Registration.query.filter(
-        Registration.game_date < data_limite.date()
-    ).all()
-    
-    total_removidos = len(registros_antigos)
-    
-    for registro in registros_antigos:
-        db.session.delete(registro)
-    
+def limpar_registros_antigos():
     try:
+        data_limite = datetime.now(BR_TIMEZONE) - timedelta(days=30)
+        registros_antigos = Registration.query.filter(
+            Registration.game_date < data_limite.date()
+        ).all()
+        
+        total_removidos = len(registros_antigos)
+        
+        for registro in registros_antigos:
+            db.session.delete(registro)
+        
         db.session.commit()
         print(f"{total_removidos} registros de inscrição antigos removidos")
     except Exception as e:
         db.session.rollback()
         print(f"Erro ao remover registros antigos: {e}")
 
+# Chame a função de limpeza
+with app.app_context():
+    limpar_registros_antigos()
+
 if __name__ == '__main__':
    app.run(debug=True)
+
+
 
