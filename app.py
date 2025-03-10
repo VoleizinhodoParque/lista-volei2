@@ -58,6 +58,25 @@ def init_db():
 if os.environ.get('RENDER'):
    init_db()
 
+# Nova função de limpeza de registros antigos
+def limpar_registros_antigos():
+    try:
+        data_limite = datetime.now(BR_TIMEZONE) - timedelta(days=30)
+        registros_antigos = Registration.query.filter(
+            Registration.game_date < data_limite.date()
+        ).all()
+        
+        total_removidos = len(registros_antigos)
+        
+        for registro in registros_antigos:
+            db.session.delete(registro)
+        
+        db.session.commit()
+        print(f"{total_removidos} registros de inscrição antigos removidos")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao remover registros antigos: {e}")
+
 # Utility Functions
 def get_active_lists():
    now = datetime.now(BR_TIMEZONE)
@@ -355,31 +374,12 @@ def cancel():
        print(f"Error canceling: {str(e)}")
    
    return redirect(url_for('index'))
-  
-def limpar_registros_antigos():
-    try:
-        data_limite = datetime.now(BR_TIMEZONE) - timedelta(days=30)
-        registros_antigos = Registration.query.filter(
-            Registration.game_date < data_limite.date()
-        ).all()
-        
-        total_removidos = len(registros_antigos)
-        
-        for registro in registros_antigos:
-            db.session.delete(registro)
-        
-        db.session.commit()
-        print(f"{total_removidos} registros de inscrição antigos removidos")
-    except Exception as e:
-        db.session.rollback()
-        print(f"Erro ao remover registros antigos: {e}")
 
-# Chame a função de limpeza
+# Chamada de limpeza antes do bloco principal
 with app.app_context():
     limpar_registros_antigos()
 
 if __name__ == '__main__':
    app.run(debug=True)
-
 
 
