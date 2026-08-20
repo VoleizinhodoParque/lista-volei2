@@ -222,21 +222,18 @@ def register():
         flash('Lista fechada no momento')
         return redirect(url_for('index'))
 
-    existing = Registration.query.filter_by(
-        user_id=session['user_id'],
-        game_date=game_date
-    ).first()
-
-    if existing:
-        flash('Você já está inscrito para este dia')
-        return redirect(url_for('index'))
-
     try:
         # Lock existing registrations for this date so concurrent sign-ups
-        # can't read the same counts and collide on the same position.
+        # (including double submits from the same user) can't read the same
+        # counts and collide on the same position or duplicate a signup.
         regs_for_date = Registration.query.filter_by(
             game_date=game_date
         ).with_for_update().all()
+
+        if any(r.user_id == session['user_id'] for r in regs_for_date):
+            flash('Você já está inscrito para este dia')
+            db.session.rollback()
+            return redirect(url_for('index'))
 
         main_count = sum(1 for r in regs_for_date if r.status == 'CONFIRMADO')
         waiting_count = sum(1 for r in regs_for_date if r.status == 'LISTA_ESPERA')
@@ -271,87 +268,82 @@ def register():
 
 @app.route('/cancel', methods=['POST'])
 def cancel():
-   if not session.get('user_id'):
-       flash('Faça login primeiro')
-       return redirect(url_for('login'))
-   
-   game_date_str = request.form.get('game_date')
-   if not game_date_str:
-       flash('Data inválida')
-       return redirect(url_for('index'))
-   
-   game_date = datetime.strptime(game_date_str, '%Y-%m-%d').date()
-   
-   if not is_list_open(game_date):
-       flash('Lista fechada no momento')
-       return redirect(url_for('index'))
-   
-   registration = Registration.query.filter_by(
-       user_id=session['user_id'],
-       game_date=game_date
-   ).first()
-   
-   if not registration:
-       flash('Você não está inscrito para este dia')
-       return redirect(url_for('index'))
-   
-   try:
-       if registration.status == 'CONFIRMADO':
-           # Busca todas as listas para reorganização
-           main_list = Registration.query.filter(
-               Registration.game_date == game_date,
-               Registration.status == 'CONFIRMADO'
-           ).order_by(Registration.registration_time).all()
-           
-           waiting_list = Registration.query.filter(
-               Registration.game_date == game_date,
-               Registration.status == 'LISTA_ESPERA'
-           ).order_by(Registration.registration_time).all()
-           
-           # Remove o registro cancelado da lista principal
-           main_list = [reg for reg in main_list if reg.id != registration.id]
-           
-           # Se lista principal tem menos de 22 e há espera
-           if len(main_list) < 22 and waiting_list:
-               # Move primeiro da lista de espera
-               first_waiting = waiting_list[0]
-               first_waiting.status = 'CONFIRMADO'
-               main_list.append(first_waiting)
-               
-               # Remove primeiro da lista de espera
-               waiting_list = waiting_list[1:]
-           
-           # Reordena lista principal
-           for i, reg in enumerate(sorted(main_list, key=lambda x: x.registration_time), start=1):
-               reg.position = i
-           
-           # Reordena lista de espera
-           for i, reg in enumerate(sorted(waiting_list, key=lambda x: x.registration_time), start=1):
-               reg.position = i
-       else:
-           # Se cancelamento da lista de espera
-           waiting_list = Registration.query.filter_by(
-               game_date=game_date,
-               status='LISTA_ESPERA'
-           ).order_by(Registration.registration_time).all()
-           
-           # Remove registro cancelado
-           waiting_list = [reg for reg in waiting_list if reg.id != registration.id]
-           
-           # Reordena lista de espera
-           for i, reg in enumerate(sorted(waiting_list, key=lambda x: x.registration_time), start=1):
-               reg.position = i
-       
-       # Remove a inscrição cancelada
-       db.session.delete(registration)
-       db.session.commit()
-       flash('Inscrição cancelada com sucesso!')
-   except Exception as e:
-       db.session.rollback()
-       flash('Ocorreu um erro ao cancelar a inscrição.')
-       print(f"Error canceling: {str(e)}")
-   
-   return redirect(url_for('index'))
+    if not session.get('user_id'):
+        flash('Faça login primeiro')
+        return redirect(url_for('login'))
+
+    game_date_str = request.form.get('game_date')
+    if not game_date_str:
+        flash('Data inválida')
+        return redirect(url_for('index'))
+
+    game_date = datetime.strptime(game_date_str, '%Y-%m-%d').date()
+
+    if not is_list_open(game_date):
+        flash('Lista fechada no momento')
+        return redirect(url_for('index'))
+
+    try:
+        # Lock all registrations for this date up front so a concurrent
+        # register/cancel on the same date can't interleave with the
+        # position shifting below.
+        regs_for_date = Registration.query.filter_by(
+            game_date=game_date
+        ).with_for_update().all()
+
+        registration = next(
+            (r for r in regs_for_date if r.user_id == session['user_id']), None
+        )
+
+        if not registration:
+            flash('Você não está inscrito para este dia')
+            db.session.rollback()
+            return redirect(url_for('index'))
+
+        if registration.status == 'CONFIRMADO':
+            main_list = sorted(
+                (r for r in regs_for_date if r.status == 'CONFIRMADO' and r.id != registration.id),
+                key=lambda x: x.registration_time
+            )
+            waiting_list = sorted(
+                (r for r in regs_for_date if r.status == 'LISTA_ESPERA'),
+                key=lambda x: x.registration_time
+            )
+
+            # Se lista principal tem menos de 22 e há espera, promove o primeiro
+            if len(main_list) < 22 and waiting_list:
+                first_waiting = waiting_list[0]
+                first_waiting.status = 'CONFIRMADO'
+                main_list.append(first_waiting)
+                waiting_list = waiting_list[1:]
+
+            # Reordena lista principal
+            for i, reg in enumerate(sorted(main_list, key=lambda x: x.registration_time), start=1):
+                reg.position = i
+
+            # Reordena lista de espera
+            for i, reg in enumerate(waiting_list, start=1):
+                reg.position = i
+        else:
+            waiting_list = sorted(
+                (r for r in regs_for_date if r.status == 'LISTA_ESPERA' and r.id != registration.id),
+                key=lambda x: x.registration_time
+            )
+
+            # Reordena lista de espera
+            for i, reg in enumerate(waiting_list, start=1):
+                reg.position = i
+
+        # Remove a inscrição cancelada
+        db.session.delete(registration)
+        db.session.commit()
+        flash('Inscrição cancelada com sucesso!')
+    except Exception as e:
+        db.session.rollback()
+        flash('Ocorreu um erro ao cancelar a inscrição.')
+        print(f"Error canceling: {str(e)}")
+
+    return redirect(url_for('index'))
 
 # Chamada de limpeza antes do bloco principal
 with app.app_context():

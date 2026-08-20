@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: volei
+      POSTGRES_PASSWORD: volei
+      POSTGRES_DB: volei
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U volei"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: ["flask", "run", "--host=0.0.0.0", "--port=5000", "--debug"]
+    environment:
+      FLASK_APP: app.py
+      DATABASE_URL: postgresql://volei:volei@db:5432/volei
+      SECRET_KEY: ${SECRET_KEY:-dev-only-insecure-key}
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+volumes:
+  pgdata:
