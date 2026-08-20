@@ -1,9 +1,9 @@
 flask==3.0.0
 gunicorn==23.0.0
 flask_sqlalchemy==3.1.1
+flask-wtf==1.2.1
+flask-limiter==3.8.0
 sqlalchemy==2.0.25
 werkzeug==3.0.1
-pytz==2024.1
-Sqlalchemy-Utils
 psycopg2-binary
 python-dotenv

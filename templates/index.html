@@ -29,6 +29,7 @@
                     <div class="card mb-4">
                         <div class="card-body p-4">
                             <form method="POST" action="{{ url_for('register') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="game_date" value="{{ list_data.game_date }}">
                                 <button type="submit" class="btn btn-primary btn-lg w-100 py-3 fs-4">Inscrever para {{ list_data.game_date.strftime('%d/%m') }}</button>
                             </form>
@@ -38,6 +39,7 @@
                     <div class="card mb-4">
                         <div class="card-body p-4">
                             <form method="POST" action="{{ url_for('cancel') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="game_date" value="{{ list_data.game_date }}">
                                 <button type="submit" class="btn btn-danger btn-lg w-100 py-3 fs-4">Cancelar inscrição para {{ list_data.game_date.strftime('%d/%m') }}</button>
                             </form>
@@ -104,7 +106,7 @@
         <div class="card-body p-4">
             <h5 class="card-title h4 fw-bold mb-3">Informações importantes:</h5>
             <ul class="mb-0 fs-5">
-                <li class="mb-2">A lista abre ao meio-dia do dia anterior e fecha às 21h do dia do jogo</li>
+                <li class="mb-2">A lista abre ao meio-dia do dia anterior e fecha às 19h do dia do jogo</li>
                 <li class="mb-2">São 22 vagas na lista principal e 50 vagas na lista de espera</li>
                 <li class="mb-2">As posições são definidas por ordem de inscrição</li>
                 <li class="mb-2">Ao cancelar uma inscrição da lista principal, o primeiro da lista de espera é promovido automaticamente</li>
